@@ -7,11 +7,11 @@ import { createMock } from '@golevelup/ts-jest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { AuthService } from '../../../src/auth/auth.service';
+import { SignInDto } from '../../../src/auth/dto/sign-in.dto';
 import { BcryptService } from '../../../src/auth/bcrypt.service';
 import { RedisService } from '../../../src/redis/redis.service';
 import jwtConfig from '../../../src/common/config/jwt.config';
 import { User } from '../../../src/users/entities/user.entity';
-import { SignUpDto } from '../../../src/auth/dto/sign-up.dto';
 import { MysqlErrorCode } from '../../../src/common/enums/error-codes.enum';
 import { ActiveUserData } from '../../../src/common/interfaces/active-user-data.interface';
 
@@ -52,40 +52,31 @@ describe('AuthService', () => {
   });
 
   describe('signUp', () => {
-    const signUpDto: SignUpDto = {
-      email: 'test@example.com',
-      password: 'password',
-      passwordConfirm: 'password',
+    const signUpDto: SignInDto = {
+      username: 'test@example.com',
     };
     let user: User;
 
     beforeEach(() => {
       user = new User();
-      user.email = signUpDto.email;
-      user.password = 'hashed_password';
+      user.username = signUpDto.username;
     });
 
     it('should create a new user', async () => {
       const saveSpy = jest
         .spyOn(userRepository, 'save')
         .mockResolvedValueOnce(user);
-      const hashSpy = jest
-        .spyOn(bcryptService, 'hash')
-        .mockResolvedValueOnce('hashed_password');
-
       await authService.signUp(signUpDto);
-
-      expect(hashSpy).toHaveBeenCalledWith(signUpDto.password);
       expect(saveSpy).toHaveBeenCalledWith(user);
     });
 
-    it('should throw a ConflictException if a user with the same email already exists', async () => {
+    it('should throw a ConflictException if a user with the same username already exists', async () => {
       const saveSpy = jest
         .spyOn(userRepository, 'save')
         .mockRejectedValueOnce({ code: MysqlErrorCode.UniqueViolation });
 
       await expect(authService.signUp(signUpDto)).rejects.toThrowError(
-        new ConflictException(`User [${signUpDto.email}] already exist`),
+        new ConflictException(`User [${signUpDto.username}] already exist`),
       );
 
       expect(saveSpy).toHaveBeenCalledWith(user);
@@ -107,21 +98,15 @@ describe('AuthService', () => {
   describe('signIn', () => {
     it('should sign in a user and return an access token', async () => {
       const signInDto = {
-        email: 'johndoe@example.com',
-        password: 'password',
+        username: 'johndoe001',
       };
 
       const user = new User();
-      user.id = '123';
-      user.email = signInDto.email;
-      user.password = 'encryptedPassword';
+      user.id = 123;
+      user.username = signInDto.username;
 
-      const encryptedPassword = 'encryptedPassword';
-      const comparedPassword = true;
       const tokenId = expect.any(String);
-
       jest.spyOn(userRepository, 'findOne').mockResolvedValue(user);
-      jest.spyOn(bcryptService, 'compare').mockResolvedValue(comparedPassword);
       jest
         .spyOn(authService, 'generateAccessToken')
         .mockResolvedValue({ accessToken: 'accessToken' });
@@ -130,18 +115,13 @@ describe('AuthService', () => {
 
       expect(result).toEqual({ accessToken: 'accessToken' });
       expect(userRepository.findOne).toHaveBeenCalledWith({
-        where: { email: signInDto.email },
+        where: { username: signInDto.username },
       });
-      expect(bcryptService.compare).toHaveBeenCalledWith(
-        signInDto.password,
-        encryptedPassword,
-      );
     });
 
-    it('should throw an error when email is invalid', async () => {
+    it('should throw an error when username is invalid', async () => {
       const signInDto = {
-        email: 'invalid-email',
-        password: 'Pass#123',
+        username: 'invalid-username',
       };
       jest.spyOn(userRepository, 'findOne').mockResolvedValue(undefined);
 
@@ -150,41 +130,14 @@ describe('AuthService', () => {
       );
 
       expect(userRepository.findOne).toHaveBeenCalledWith({
-        where: { email: signInDto.email },
+        where: { username: signInDto.username },
       });
-    });
-
-    it('should throw an error when password is invalid', async () => {
-      const signInDto = {
-        email: 'johndoe@example.com',
-        password: 'password',
-      };
-
-      const user = new User();
-      user.id = '123';
-      user.email = signInDto.email;
-      user.password = 'encryptedPassword';
-
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(user);
-      jest.spyOn(bcryptService, 'compare').mockResolvedValue(false);
-
-      await expect(authService.signIn(signInDto)).rejects.toThrow(
-        BadRequestException,
-      );
-
-      expect(userRepository.findOne).toHaveBeenCalledWith({
-        where: { email: signInDto.email },
-      });
-      expect(bcryptService.compare).toHaveBeenCalledWith(
-        signInDto.password,
-        user.password,
-      );
     });
   });
 
   describe('signOut', () => {
     it('should delete user token from Redis', async () => {
-      const userId = 'test-user-id';
+      const userId = 1;
       const deleteSpy = jest
         .spyOn(redisService, 'delete')
         .mockResolvedValue(undefined);
@@ -197,7 +150,7 @@ describe('AuthService', () => {
 
   describe('generateAccessToken', () => {
     it('should insert a token into Redis and return an access token', async () => {
-      const user = { id: '123', email: 'test@example.com' };
+      const user = { id: 123, username: 'testexample' };
       const tokenId = expect.any(String);
       const accessToken = 'test-access-token';
       (redisService.insert as any).mockResolvedValueOnce(undefined);
@@ -210,7 +163,7 @@ describe('AuthService', () => {
         tokenId,
       );
       expect(jwtService.signAsync).toHaveBeenCalledWith(
-        { id: user.id, email: user.email, tokenId } as ActiveUserData,
+        { id: user.id, username: user.username, tokenId } as ActiveUserData,
         {
           secret: jwtConfiguration.secret,
           expiresIn: jwtConfiguration.accessTokenTtl,

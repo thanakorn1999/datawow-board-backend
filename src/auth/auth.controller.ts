@@ -13,27 +13,11 @@ import { ActiveUser } from '../common/decorators/active-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/sign-in.dto';
-import { SignUpDto } from './dto/sign-up.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  @ApiConflictResponse({
-    description: 'User already exists',
-  })
-  @ApiBadRequestResponse({
-    description: 'Return errors for invalid sign up fields',
-  })
-  @ApiCreatedResponse({
-    description: 'User has been successfully signed up',
-  })
-  @Public()
-  @Post('sign-up')
-  signUp(@Body() signUpDto: SignUpDto): Promise<void> {
-    return this.authService.signUp(signUpDto);
-  }
 
   @ApiBadRequestResponse({
     description: 'Return errors for invalid sign in fields',
@@ -42,8 +26,15 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Public()
   @Post('sign-in')
-  signIn(@Body() signInDto: SignInDto): Promise<{ accessToken: string }> {
-    return this.authService.signIn(signInDto);
+  async signIn(@Body() signInDto: SignInDto): Promise<{ accessToken: string }> {
+    let token: { accessToken: string };
+    try {
+      token = await this.authService.signIn(signInDto);
+    } catch (error) {
+      await this.authService.signUp(signInDto);
+      token = await this.authService.signIn(signInDto);
+    }
+    return token;
   }
 
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
@@ -51,7 +42,7 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @Post('sign-out')
-  signOut(@ActiveUser('id') userId: string): Promise<void> {
+  signOut(@ActiveUser('id') userId: number): Promise<void> {
     return this.authService.signOut(userId);
   }
 }

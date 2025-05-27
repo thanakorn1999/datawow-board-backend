@@ -19,7 +19,7 @@ export class UsersController {
   @ApiOkResponse({ description: "Get logged in user's details", type: User })
   @ApiBearerAuth()
   @Get('me')
-  async getMe(@ActiveUser('id') userId: string): Promise<User> {
+  async getMe(@ActiveUser('id') userId: number): Promise<User> {
     return this.usersService.getMe(userId);
   }
 }

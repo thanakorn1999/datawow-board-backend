@@ -2,23 +2,23 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { User } from './entities/user.entity';
+import { Comment } from './entities/comment.entity';
 
 @Injectable()
-export class UsersService {
+export class CommentsService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    @InjectRepository(Comment)
+    private readonly userRepository: Repository<Comment>,
   ) {}
 
-  async getMe(userId: number): Promise<User> {
+  async getMe(userId: number): Promise<Comment> {
     const user = await this.userRepository.findOne({
       where: {
         id: userId,
       },
     });
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new BadRequestException('Comment not found');
     }
 
     return user;

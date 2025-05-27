@@ -1,5 +1,5 @@
 export interface ActiveUserData {
-  id: string;
-  email: string;
+  id: number;
+  username: string;
   tokenId: string;
 }

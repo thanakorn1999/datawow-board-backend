@@ -3,10 +3,9 @@ import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import { Column, Entity } from 'typeorm';
 
 @Entity({
-  name: 'users',
+  name: 'communities',
 })
-export class User extends BaseEntity {
-  @ApiProperty({ description: 'Username of user', example: 'username' })
-  @Column({ unique: true })
-  username: string;
+export class Community extends BaseEntity {
+  @Column()
+  text: number;
 }

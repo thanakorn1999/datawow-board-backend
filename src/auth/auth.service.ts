@@ -17,7 +17,6 @@ import { RedisService } from '../redis/redis.service';
 import { User } from '../users/entities/user.entity';
 import { BcryptService } from './bcrypt.service';
 import { SignInDto } from './dto/sign-in.dto';
-import { SignUpDto } from './dto/sign-up.dto';
 
 @Injectable()
 export class AuthService {
@@ -31,46 +30,58 @@ export class AuthService {
     private readonly redisService: RedisService,
   ) {}
 
-  async signUp(signUpDto: SignUpDto): Promise<void> {
-    const { email, password } = signUpDto;
-
+  async signUp(signInDto: SignInDto): Promise<void> {
     try {
       const user = new User();
-      user.email = email;
-      user.password = await this.bcryptService.hash(password);
+      user.username = signInDto.username;
       await this.userRepository.save(user);
     } catch (error) {
       if (error.code === MysqlErrorCode.UniqueViolation) {
-        throw new ConflictException(`User [${email}] already exist`);
+        throw new ConflictException(
+          `User [${signInDto.username}] already exist`,
+        );
       }
       throw error;
     }
   }
 
   async signIn(signInDto: SignInDto): Promise<{ accessToken: string }> {
-    const { email, password } = signInDto;
+    const { username } = signInDto;
 
     const user = await this.userRepository.findOne({
       where: {
-        email,
+        username,
       },
     });
     if (!user) {
-      throw new BadRequestException('Invalid email');
-    }
-
-    const isPasswordMatch = await this.bcryptService.compare(
-      password,
-      user.password,
-    );
-    if (!isPasswordMatch) {
-      throw new BadRequestException('Invalid password');
+      throw new BadRequestException('Invalid username');
     }
 
     return await this.generateAccessToken(user);
   }
-
-  async signOut(userId: string): Promise<void> {
+  // async signIn(signInDto: SignInDto): Promise<{ accessToken: string }> {
+  //   const { username } = signInDto;
+  //   let user: Partial<User>;
+  //   user = await this.userRepository.findOne({
+  //     where: {
+  //       username,
+  //     },
+  //   });
+  //   if (!user) {
+  //     // ? automate register
+  //     await this.signUp({ username });
+  //     user = await this.userRepository.findOne({
+  //       where: {
+  //         username,
+  //       },
+  //     });
+  //   }
+  //   if (!user) {
+  //     throw new Error('');
+  //   }
+  //   return await this.generateAccessToken(user);
+  // }
+  async signOut(userId: number): Promise<void> {
     this.redisService.delete(`user-${userId}`);
   }
 
@@ -84,7 +95,7 @@ export class AuthService {
     const accessToken = await this.jwtService.signAsync(
       {
         id: user.id,
-        email: user.email,
+        username: user.username,
         tokenId,
       } as ActiveUserData,
       {

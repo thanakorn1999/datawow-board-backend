@@ -27,7 +27,7 @@ describe('UsersService', () => {
 
   describe('getMe', () => {
     it('should return a user with the specified ID', async () => {
-      const userId = '123';
+      const userId = 123;
       const user = new User();
       user.id = userId;
       jest.spyOn(userRepository, 'findOne').mockResolvedValue(user);
@@ -38,7 +38,7 @@ describe('UsersService', () => {
     });
 
     it('should throw a BadRequestException if user is not found', async () => {
-      const userId = '123';
+      const userId = 123;
       jest.spyOn(userRepository, 'findOne').mockResolvedValue(undefined);
 
       await expect(usersService.getMe(userId)).rejects.toThrow(
